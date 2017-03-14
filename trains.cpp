@@ -18,13 +18,23 @@ public:
     std::string myName;
     int myLocation;
     bool myLightGreen;
+    bool myTrackBetaLightGreen;
 
     cStation( const std::string& name, int loc )
         : myName( name )
         , myLocation( loc )
         , myLightGreen( true )
+        , myTrackBetaLightGreen( true )
     {
 
+    }
+
+    void SetLight( int track, bool green )
+    {
+        if( track == 0 )
+            myLightGreen = green;
+        else
+            myTrackBetaLightGreen = green;
     }
 };
 
@@ -34,7 +44,7 @@ class cTrain
 {
 public:
 
-    cTrain();
+    cTrain( int track );
 
     void Advance();
 
@@ -42,7 +52,12 @@ public:
     {
         return myLocationL;
     }
+    int Track()
+    {
+        return myTrack;
+    }
 private:
+    int myTrack;
     int myLocationL;
     bool myfInStation;
     int myTimeToDepart;
@@ -82,13 +97,8 @@ public:
 
     void SetConvertL2P();
 
-    void RenderLine( wxDC& DC )
+    void RenderTrack( wxDC& DC, int margin )
     {
-        int margin = 20;
-
-        wxPen pen( *wxBLUE_PEN );
-        pen.SetWidth( 5 );
-        DC.SetPen( pen );
 
         DC.DrawLine( 0.667 * myWindowWidth, margin,
                      myWindowWidth - margin, margin  );
@@ -105,8 +115,18 @@ public:
         DC.DrawLine( margin, margin,
                      0.333 * myWindowWidth, margin );
 
+    }
+
+        void RenderTracks( wxDC& DC )
+    {
+        wxPen pen( *wxBLUE_PEN );
+        pen.SetWidth( 5 );
+        DC.SetPen( pen );
+        RenderTrack( DC, 10 );
+        RenderTrack( DC, 30 );
         DC.SetPen( *wxBLUE_PEN );
     }
+
 
     void RenderStations( wxDC& DC );
 
@@ -118,7 +138,7 @@ public:
 
         SetConvertL2P();
 
-        RenderLine( DC );
+        RenderTracks( DC );
 
         RenderStations( DC );
 
@@ -130,7 +150,8 @@ public:
         none, top, right, bottom, left
     };
     edge Convert( int& x, int& y,       // pixel location
-                  int loc              // location from terminus A
+                  int loc,              // location from terminus A
+                  int margin
                 )
     {
 
@@ -139,38 +160,39 @@ public:
         if( locP < myTopRightP )
         {
             x = .667 * myWindowWidth + locP;
-            y = 20;
+            y = margin;
             return edge::top;
         }
         if( locP < myBottomRightP )
         {
-            x = myWindowWidth - 20;
+            x = myWindowWidth - margin;
             y = locP - myTopRightP;
             return edge::right;
         }
         if( locP < 1.33 * myWindowWidth + myWindowHeight )
         {
             x = myWindowWidth - locP + myBottomRightP;
-            y = myWindowHeight - 20;
+            y = myWindowHeight - margin;
             return edge::bottom;
         }
         if( locP < myTopLeftP )
         {
-            x = 20;
+            x = margin;
             y = myWindowHeight - locP + 1.33 * myWindowWidth + myWindowHeight;
             return edge::left;
         }
         if( locP <= myMaxP )
         {
             x = locP - myTopLeftP;
-            y = 20;
+            y = margin;
             return edge::top;
         }
 
-        x = -1;
-        y = -1;
+        x = -10;
+        y = -10;
         return edge::none;
     }
+
 
 private:
     int myWindowWidth;
@@ -350,9 +372,6 @@ bool MyApp::OnInit()
         theStations.push_back( stat );
     }
 
-    theTrains.push_back( train_t( new cTrain()));
-
-
     // success: wxApp::OnRun() will be called which will enter the main message
     // loop and the application will run. If we returned false here, the
     // application would exit immediately.
@@ -437,7 +456,8 @@ void MyFrame::OnTimer( wxTimerEvent& event)
 
     if( ! ( theTime % 10 ) )
     {
-        theTrains.push_back( train_t( new cTrain()));
+        theTrains.push_back( train_t( new cTrain( 0 )));
+        theTrains.push_back( train_t( new cTrain( 1 )));
     }
 
     for( auto train : theTrains )
@@ -494,7 +514,8 @@ void cGraphic::RenderStations( wxDC& DC )
         int x, y;
         edge E = Convert(
                      x, y,
-                     stat->myLocation
+                     stat->myLocation,
+                     20
                  );
         DC.SetPen( *wxBLACK_PEN );
         DC.DrawCircle( x, y, 20 );
@@ -530,12 +551,25 @@ void cGraphic::RenderStations( wxDC& DC )
 
         Convert(
             x, y,
-            stat->myLocation + 10
+            stat->myLocation + 10,
+            10
         );
 
         DC.DrawCircle( x, y, 5 );
 
 
+        if( stat->myTrackBetaLightGreen )
+            DC.SetPen( green );
+        else
+            DC.SetPen( red );
+
+        Convert(
+            x, y,
+            stat->myLocation - 10,
+            30
+        );
+
+        DC.DrawCircle( x, y, 5 );
 
 
     }
@@ -550,13 +584,18 @@ void cGraphic::RenderTrains( wxDC& DC )
 
     for( auto train : theTrains )
     {
+        int margin = 10;
+        if( train->Track() == 1 )
+            margin = 30;
         wxPoint p1, p2;
         Convert(
             p1.x, p1.y,
-            train->LocationL()-2);
+            train->LocationL()-2,
+            margin);
         Convert(
             p2.x, p2.y,
-            train->LocationL()+2 );
+            train->LocationL()+2,
+            margin );
         if( p2.x < 0 )
         {
             DC.SetPen( *wxBLUE_PEN );
@@ -568,14 +607,21 @@ void cGraphic::RenderTrains( wxDC& DC )
     DC.SetPen( *wxBLUE_PEN );
 }
 
-cTrain::cTrain()
-    : myLocationL( 0 )
+cTrain::cTrain( int track )
+    : myTrack( track )
     , myfInStation( true )
-    , myStation( *theStations.begin())
     , myTimeToDepart( theTime )
-    , myIncrement( 5 )
 {
-
+    if( myTrack == 0 ) {
+        myIncrement = 5;
+        myLocationL = 0;
+        myStation = *theStations.begin();
+    }
+    else {
+        myLocationL = theStations.back()->myLocation - 2;
+        myStation = theStations.back();
+        myIncrement = -5;
+    }
 }
 
 void cTrain::Advance()
@@ -592,11 +638,14 @@ void cTrain::Advance()
 
         // Off we go!
         if( myPrevStation )
-            myPrevStation->myLightGreen = true;
+            myPrevStation->SetLight( myTrack, true );
         myPrevStation = myStation;
-        myStation->myLightGreen = false;
+        myStation->SetLight( myTrack, false );
         myfInStation = false;
-        myLocationL += 6;
+        if( myTrack == 0 )
+            myLocationL += 6;
+        else
+            myLocationL -= 6;
     }
 
     myLocationL += myIncrement;
@@ -617,7 +666,7 @@ void cTrain::Advance()
             if( myLocationL == theStations.back()->myLocation )
             {
                 // turn around
-                myIncrement *= -1;
+                //myIncrement *= -1;
             }
             break;
         }
