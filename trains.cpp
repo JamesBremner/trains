@@ -56,6 +56,10 @@ public:
     {
         return myTrack;
     }
+
+    std::string TextStatus();
+    std::string TextPosition();
+
 private:
     int myTrack;
     int myLocationL;
@@ -117,7 +121,7 @@ public:
 
     }
 
-        void RenderTracks( wxDC& DC )
+    void RenderTracks( wxDC& DC )
     {
         wxPen pen( *wxBLUE_PEN );
         pen.SetWidth( 5 );
@@ -230,8 +234,6 @@ public:
         szr->Add( myGrid );
         SetSizerAndFit( szr );
 
-        Show();
-
     }
 
     void Populate()
@@ -241,7 +243,43 @@ public:
         {
             myGrid->SetCellValue( row,0, station->myName );
             myGrid->SetCellValue( row,1,
-                                 wxString::Format("%d",station->myLocation ));
+                                  wxString::Format("%d",station->myLocation ));
+            row++;
+        }
+    }
+};
+
+
+class cDLGTrains : public wxDialog
+{
+    wxGrid * myGrid;
+public:
+    cDLGTrains( wxWindow* parent )
+        : wxDialog( parent, -1, "Trains" )
+    {
+        wxBoxSizer * szr = new wxBoxSizer( wxVERTICAL );
+        myGrid = new wxGrid( this, -1,
+                             wxDefaultPosition, // position
+                             wxSize(300,-1) );
+        myGrid->CreateGrid( 100, 2 );
+        myGrid->EnableEditing( false );
+        myGrid->SetColLabelValue(0,"Status");
+        myGrid->SetColLabelValue(1,"Location");
+
+        szr->Add( myGrid );
+        SetSizer( szr );
+
+    }
+
+    void Populate()
+    {
+        myGrid->ClearGrid();
+        int row = 0;
+        for( auto train : theTrains )
+        {
+            myGrid->SetCellValue( row,0, train->TextStatus() );
+            myGrid->SetCellValue( row,1,
+                                  train->TextPosition());
             row++;
         }
     }
@@ -273,9 +311,12 @@ public:
     void OnAbout(wxCommandEvent& event);
     void OnSize(wxSizeEvent& event);
     void OnTimer( wxTimerEvent& event);
+    void onViewStations(wxCommandEvent& WXUNUSED(event));
+    void onViewTrains(wxCommandEvent& WXUNUSED(event));
 
     wxTimer myTimer;
     cDLGStations * dlgStations;
+    cDLGTrains * dlgTrains;
 
 
 private:
@@ -300,7 +341,8 @@ enum
     Minimal_About = wxID_ABOUT,
 
     TIMER_ID,
-
+    IDM_VIEW_STATIONS,
+    IDM_VIEW_TRAINS,
 };
 
 // ----------------------------------------------------------------------------
@@ -392,24 +434,33 @@ MyFrame::MyFrame(const wxString& title)
     // set the frame icon
     SetIcon(wxICON(sample));
 
-//#if wxUSE_MENUS
-//    // create a menu bar
-//    wxMenu *fileMenu = new wxMenu;
-//
-//    // the "About" item should be in the help menu
-//    wxMenu *helpMenu = new wxMenu;
-//    helpMenu->Append(Minimal_About, _T("&About...\tF1"), _T("Show about dialog"));
-//
-//    fileMenu->Append(Minimal_Quit, _T("E&xit\tAlt-X"), _T("Quit this program"));
-//
-//    // now append the freshly created menu to the menu bar...
-//    wxMenuBar *menuBar = new wxMenuBar();
-//    menuBar->Append(fileMenu, _T("&File"));
-//    menuBar->Append(helpMenu, _T("&Help"));
-//
-//    // ... and attach this menu bar to the frame
-//    SetMenuBar(menuBar);
-//#endif // wxUSE_MENUS
+
+    // create a menu bar
+    wxMenu *fileMenu = new wxMenu;
+
+    // the "About" item should be in the help menu
+    wxMenu *helpMenu = new wxMenu;
+    helpMenu->Append(Minimal_About, _T("&About...\tF1"), _T("Show about dialog"));
+
+    fileMenu->Append(Minimal_Quit, _T("E&xit\tAlt-X"), _T("Quit this program"));
+
+    // now append the freshly created menu to the menu bar...
+    wxMenuBar *menuBar = new wxMenuBar();
+    menuBar->Append(fileMenu, _T("&File"));
+
+    wxMenu *viewMenu = new wxMenu;
+    viewMenu->AppendRadioItem(IDM_VIEW_STATIONS, "Stations");
+    Bind(wxEVT_MENU,&MyFrame::onViewStations,this,IDM_VIEW_STATIONS);
+    viewMenu->AppendRadioItem(IDM_VIEW_TRAINS, "Trains");
+    Bind(wxEVT_MENU,&MyFrame::onViewTrains,this,IDM_VIEW_TRAINS);
+    menuBar->Append(viewMenu, _T("View"));
+
+    menuBar->Append(helpMenu, _T("&Help"));
+
+
+    // ... and attach this menu bar to the frame
+    SetMenuBar(menuBar);
+
 //
 //#if wxUSE_STATUSBAR
 //    // create a status bar just for fun (by default with 1 pane only)
@@ -427,6 +478,7 @@ MyFrame::MyFrame(const wxString& title)
     Show();
 
     dlgStations = new cDLGStations(this);
+    dlgTrains = new cDLGTrains(this);
 
     Bind(wxEVT_SIZE,&MyFrame::OnSize,this);
     Bind(wxEVT_TIMER, &MyFrame::OnTimer,this);
@@ -466,6 +518,19 @@ void MyFrame::OnTimer( wxTimerEvent& event)
     }
 
     Refresh();
+
+    dlgTrains->Populate();
+}
+
+void MyFrame::onViewStations(wxCommandEvent& WXUNUSED(event))
+{
+    dlgStations->Show();
+    dlgTrains->Hide();
+}
+void MyFrame::onViewTrains(wxCommandEvent& WXUNUSED(event))
+{
+    dlgStations->Hide();
+    dlgTrains->Show();
 }
 
 void MyFrame::OnQuit(wxCommandEvent& WXUNUSED(event))
@@ -476,8 +541,8 @@ void MyFrame::OnQuit(wxCommandEvent& WXUNUSED(event))
 
 void MyFrame::OnAbout(wxCommandEvent& WXUNUSED(event))
 {
-    wxMessageBox("Starter",
-                 _T("Starter"),
+    wxMessageBox("Train Simulator",
+                 _T("Trains"),
                  wxOK | wxICON_INFORMATION,
                  this);
 }
@@ -612,12 +677,14 @@ cTrain::cTrain( int track )
     , myfInStation( true )
     , myTimeToDepart( theTime )
 {
-    if( myTrack == 0 ) {
+    if( myTrack == 0 )
+    {
         myIncrement = 5;
         myLocationL = 0;
         myStation = *theStations.begin();
     }
-    else {
+    else
+    {
         myLocationL = theStations.back()->myLocation - 2;
         myStation = theStations.back();
         myIncrement = -5;
@@ -671,4 +738,18 @@ void cTrain::Advance()
             break;
         }
     }
+}
+std::string cTrain::TextStatus()
+{
+    if( myfInStation )
+        return "at";
+    else
+        return "leaving";
+}
+std::string cTrain::TextPosition()
+{
+    if( myPrevStation )
+        return( myPrevStation->myName );
+    else
+        return "";
 }
