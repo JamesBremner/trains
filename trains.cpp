@@ -6,90 +6,13 @@
 #include <wx/app.h>
 #include <wx/grid.h>
 
+#include "cStation.h"
+#include "cTrain.h"
+#include "cSimulator.h"
 
 // ----------------------------------------------------------------------------
 // private classes
 // ----------------------------------------------------------------------------
-
-
-class cStation
-{
-public:
-    std::string myName;
-    int myLocation;
-
-
-    cStation( const std::string& name, int loc )
-        : myName( name )
-        , myLocation( loc )
-        , myLightGreen( true )
-        , myTrackBetaLightGreen( true )
-    {
-
-    }
-
-    bool IsLightGreen( int track )
-    {
-        if( track == 0 )
-            return myLightGreen;
-        else
-            return myTrackBetaLightGreen;
-    }
-    void SetLight( int track, bool green )
-    {
-        if( track == 0 )
-            myLightGreen = green;
-        else
-            myTrackBetaLightGreen = green;
-    }
-
-private:
-    bool myLightGreen;
-    bool myTrackBetaLightGreen;
-};
-
-typedef std::shared_ptr< cStation > station_t;
-
-class cTrain
-{
-public:
-
-    cTrain( int track );
-
-    void Advance();
-
-    int LocationL()
-    {
-        return myLocationL;
-    }
-    int Track()
-    {
-        return myTrack;
-    }
-
-    std::string TextStatus();
-    std::string TextPosition();
-    std::string TextTrack();
-
-    bool IsAtDestination() const
-    {
-        return myfDestination;
-    }
-
-private:
-    int myTrack;
-    int myLocationL;
-    bool myfInStation;
-    bool myfDestination;
-    int myTimeToDepart;
-    int myIncrement;
-    station_t myStation;
-    station_t myPrevStation;
-};
-
-
-typedef std::shared_ptr< cTrain > train_t;
-
 
 /** Graphical display of railway
 
@@ -226,22 +149,12 @@ private:
 
 };
 
-class cSimulateTrains
-{
-public:
 
-    void Advance();
 
-    /** remove trains from simulation that have reached their destination */
-    void RemoveTrainsAtDestination();
-};
 
-int theTime;
-std::vector< station_t > theStations;
-std::vector< train_t > theTrains;
 cGraphic * theGraphic;
 
-cSimulateTrains theSim;
+train::cSimulator theSim;
 
 class cDLGStations : public wxDialog
 {
@@ -268,7 +181,7 @@ public:
     void Populate()
     {
         int row = 0;
-        for( auto station : theStations )
+        for( auto station : theSim.Stations )
         {
             myGrid->SetCellValue( row,0, station->myName );
             myGrid->SetCellValue( row,1,
@@ -305,7 +218,7 @@ public:
     {
         myGrid->ClearGrid();
         int row = 0;
-        for( auto train : theTrains )
+        for( auto train : theSim.Trains )
         {
             myGrid->SetCellValue( row,0, train->TextStatus() );
             myGrid->SetCellValue( row,1,
@@ -440,10 +353,10 @@ bool MyApp::OnInit()
 
     for( int k = 0; k < 14; k++ )
     {
-        station_t stat( new cStation(
+        station_t stat( new train::cStation(
                             StationNames[k],
                             k * 1000 / 13 ));
-        theStations.push_back( stat );
+        theSim.Stations.push_back( stat );
     }
 
     // success: wxApp::OnRun() will be called which will enter the main message
@@ -515,7 +428,6 @@ MyFrame::MyFrame(const wxString& title)
     Bind(wxEVT_SIZE,&MyFrame::OnSize,this);
     Bind(wxEVT_TIMER, &MyFrame::OnTimer,this);
 
-    theTime = 0;
     myTimer.Start( 100 );
 }
 
@@ -531,27 +443,23 @@ void MyFrame::OnSize(wxSizeEvent& event )
 
 void MyFrame::OnTimer( wxTimerEvent& event)
 {
-    theTime++;
+    theSim.Time++;
 
-    if( theTime == 1 )
+    if( theSim.Time == 1 )
     {
         dlgStations->Populate();
     }
 
-    if( ! ( theTime % 50 ) )
+    if( ! ( theSim.Time % 50 ) )
     {
-        theTrains.push_back( train_t( new cTrain( 0 )));
-        theTrains.push_back( train_t( new cTrain( 1 )));
+        theSim.Trains.push_back( train_t( new train::cTrain( 0 )));
+        theSim.Trains.push_back( train_t( new train::cTrain( 1 )));
     }
 
-    for( auto train : theTrains )
-    {
-        train->Advance();
-    }
+    theSim.Advance();
 
     Refresh();
 
-    theSim.Advance();
 
     dlgTrains->Populate();
 }
@@ -591,7 +499,7 @@ void cGraphic::SetConvertL2P()
     // Maximum line length in pixels
     myMaxP = 1.667 * myWindowWidth + 2.0 * myWindowHeight;
 
-    myConvertL2P = (float)myMaxP / theStations.back()->myLocation;
+    myConvertL2P = (float)myMaxP / theSim.Stations.back()->myLocation;
 
     myTopRightP = 0.33 * myWindowWidth;
     myBottomRightP = myTopRightP + myWindowHeight;
@@ -608,7 +516,7 @@ void cGraphic::RenderStations( wxDC& DC )
 
     DC.SetTextForeground( *wxWHITE );
 
-    for ( auto stat : theStations )
+    for ( auto stat : theSim.Stations )
     {
         int x, y;
         edge E = Convert(
@@ -681,7 +589,7 @@ void cGraphic::RenderTrains( wxDC& DC )
     pen.SetWidth( 8 );
     DC.SetPen( pen );
 
-    for( auto train : theTrains )
+    for( auto train : theSim.Trains )
     {
         int margin = 10;
         if( train->Track() == 1 )
@@ -706,22 +614,23 @@ void cGraphic::RenderTrains( wxDC& DC )
     DC.SetPen( *wxBLUE_PEN );
 }
 
+namespace train {
 cTrain::cTrain( int track )
     : myTrack( track )
     , myfInStation( true )
     , myfDestination( false )
-    , myTimeToDepart( theTime )
+    , myTimeToDepart( theSim.Time )
 {
     if( myTrack == 0 )
     {
         myIncrement = 5;
         myLocationL = 0;
-        myStation = *theStations.begin();
+        myStation = *theSim.Stations.begin();
     }
     else
     {
-        myLocationL = theStations.back()->myLocation - 2;
-        myStation = theStations.back();
+        myLocationL = theSim.Stations.back()->myLocation - 2;
+        myStation = theSim.Stations.back();
         myIncrement = -5;
     }
 }
@@ -730,7 +639,7 @@ void cTrain::Advance()
 {
     if( myfInStation )
     {
-        if( theTime < myTimeToDepart )
+        if( theSim.Time < myTimeToDepart )
             return;
 
         // train ready to leave station
@@ -753,7 +662,7 @@ void cTrain::Advance()
     myLocationL += myIncrement;
 
 
-    for( auto station : theStations )
+    for( auto station : theSim.Stations )
     {
         if( abs( myLocationL - station->myLocation) < 5 )
         {
@@ -761,13 +670,13 @@ void cTrain::Advance()
 
             myLocationL  = station->myLocation;
             myfInStation = true;
-            myTimeToDepart = theTime + rand() % 10 + 1;
+            myTimeToDepart = theSim.Time + rand() % 10 + 1;
             myStation = station;
 
             // check if train is at final station
             if(
-                ( myTrack == 0 && myLocationL == theStations.back()->myLocation ) ||
-                ( myTrack == 1 && myLocationL == theStations[0]->myLocation ) )
+                ( myTrack == 0 && myLocationL == theSim.Stations.back()->myLocation ) ||
+                ( myTrack == 1 && myLocationL == theSim.Stations[0]->myLocation ) )
             {
                 myfDestination = true;
                 myPrevStation->SetLight( myTrack, true );
@@ -797,20 +706,5 @@ std::string cTrain::TextTrack()
     else
         return "Beta";
 }
-
-void cSimulateTrains::Advance()
-{
-    RemoveTrainsAtDestination();
 }
 
-void cSimulateTrains::RemoveTrainsAtDestination()
-{
-    theTrains.erase(
-        std::remove_if( theTrains.begin(), theTrains.end(),
-                        []( const train_t& train )
-    {
-        return train->IsAtDestination();
-    }
-                      ),
-    theTrains.end());
-}
