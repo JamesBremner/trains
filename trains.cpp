@@ -79,8 +79,12 @@ public:
     void Render( wxDC& DC )
     {
         SetBackgroundColour( *wxBLACK );
+        DC.SetTextForeground( *wxWHITE );
 
         SetConvertL2P();
+
+        DC.DrawText( theSim.myTitle.c_str(),
+                    0.4 * myWindowWidth, 10 );
 
         RenderTracks( DC );
 
@@ -250,14 +254,17 @@ public:
 
     // ctor(s)
     MyFrame(const wxString& title);
+    void ConstructMenu();
 
     // event handlers (these functions should _not_ be virtual)
     void OnQuit(wxCommandEvent& event);
     void OnAbout(wxCommandEvent& event);
     void OnSize(wxSizeEvent& event);
-    void OnTimer( wxTimerEvent& event);
+    void onTimer( wxTimerEvent& event);
     void onViewStations(wxCommandEvent& WXUNUSED(event));
     void onViewTrains(wxCommandEvent& WXUNUSED(event));
+    void onFileOpen(wxCommandEvent& WXUNUSED(event));
+    void onFileSave(wxCommandEvent& WXUNUSED(event));
 
     wxTimer myTimer;
     cDLGStations * dlgStations;
@@ -286,6 +293,8 @@ enum
     Minimal_About = wxID_ABOUT,
 
     TIMER_ID,
+    IDM_FILE_OPEN,
+    IDM_FILE_SAVE,
     IDM_VIEW_STATIONS,
     IDM_VIEW_TRAINS,
 };
@@ -380,31 +389,7 @@ MyFrame::MyFrame(const wxString& title)
     SetIcon(wxICON(sample));
 
 
-    // create a menu bar
-    wxMenu *fileMenu = new wxMenu;
-
-    // the "About" item should be in the help menu
-    wxMenu *helpMenu = new wxMenu;
-    helpMenu->Append(Minimal_About, _T("&About...\tF1"), _T("Show about dialog"));
-
-    fileMenu->Append(Minimal_Quit, _T("E&xit\tAlt-X"), _T("Quit this program"));
-
-    // now append the freshly created menu to the menu bar...
-    wxMenuBar *menuBar = new wxMenuBar();
-    menuBar->Append(fileMenu, _T("&File"));
-
-    wxMenu *viewMenu = new wxMenu;
-    viewMenu->AppendRadioItem(IDM_VIEW_STATIONS, "Stations");
-    Bind(wxEVT_MENU,&MyFrame::onViewStations,this,IDM_VIEW_STATIONS);
-    viewMenu->AppendRadioItem(IDM_VIEW_TRAINS, "Trains");
-    Bind(wxEVT_MENU,&MyFrame::onViewTrains,this,IDM_VIEW_TRAINS);
-    menuBar->Append(viewMenu, _T("View"));
-
-    menuBar->Append(helpMenu, _T("&Help"));
-
-
-    // ... and attach this menu bar to the frame
-    SetMenuBar(menuBar);
+    ConstructMenu();
 
 //
 //#if wxUSE_STATUSBAR
@@ -426,11 +411,38 @@ MyFrame::MyFrame(const wxString& title)
     dlgTrains = new cDLGTrains(this);
 
     Bind(wxEVT_SIZE,&MyFrame::OnSize,this);
-    Bind(wxEVT_TIMER, &MyFrame::OnTimer,this);
+    Bind(wxEVT_TIMER, &MyFrame::onTimer,this);
 
     myTimer.Start( 100 );
 }
 
+void MyFrame::ConstructMenu()
+{
+
+    wxMenuBar *menuBar = new wxMenuBar();
+
+    wxMenu *fileMenu = new wxMenu;
+    fileMenu->Append(IDM_FILE_OPEN,"Open");
+    Bind(wxEVT_MENU,&MyFrame::onFileOpen,this, IDM_FILE_OPEN);
+    fileMenu->Append(IDM_FILE_SAVE,"Save");
+     Bind(wxEVT_MENU,&MyFrame::onFileSave,this, IDM_FILE_SAVE);
+
+    fileMenu->Append(Minimal_Quit, _T("E&xit\tAlt-X"), _T("Quit this program"));
+    menuBar->Append(fileMenu, _T("&File"));
+
+    wxMenu *viewMenu = new wxMenu;
+    viewMenu->AppendRadioItem(IDM_VIEW_STATIONS, "Stations");
+    Bind(wxEVT_MENU,&MyFrame::onViewStations,this,IDM_VIEW_STATIONS);
+    viewMenu->AppendRadioItem(IDM_VIEW_TRAINS, "Trains");
+    Bind(wxEVT_MENU,&MyFrame::onViewTrains,this,IDM_VIEW_TRAINS);
+    menuBar->Append(viewMenu, _T("View"));
+
+    wxMenu *helpMenu = new wxMenu;
+    helpMenu->Append(Minimal_About, _T("&About...\tF1"), _T("Show about dialog"));
+    menuBar->Append(helpMenu, _T("&Help"));
+
+    SetMenuBar(menuBar);
+}
 
 // event handlers
 
@@ -441,29 +453,41 @@ void MyFrame::OnSize(wxSizeEvent& event )
     event.Skip();
 }
 
-void MyFrame::OnTimer( wxTimerEvent& event)
+void MyFrame::onTimer( wxTimerEvent& event)
 {
-    theSim.Time++;
+    theSim.Advance();
+
+    Refresh();
 
     if( theSim.Time == 1 )
     {
         dlgStations->Populate();
     }
-
-    if( ! ( theSim.Time % 50 ) )
-    {
-        theSim.Trains.push_back( train_t( new train::cTrain( 0 )));
-        theSim.Trains.push_back( train_t( new train::cTrain( 1 )));
-    }
-
-    theSim.Advance();
-
-    Refresh();
-
-
     dlgTrains->Populate();
 }
 
+void MyFrame::onFileSave(wxCommandEvent& WXUNUSED(event))
+{
+     wxFileDialog        saveFileDialog(this, _("Save file"), "", "",
+                       "", wxFD_SAVE|wxFD_OVERWRITE_PROMPT);
+    if (saveFileDialog.ShowModal() == wxID_CANCEL)
+        return;     // the user changed idea...
+
+    if( ! theSim.FileSave( saveFileDialog.GetPath().ToStdString() ) )
+        wxMessageBox("Failed to save model");
+}
+void MyFrame::onFileOpen(wxCommandEvent& WXUNUSED(event))
+{
+    wxFileDialog
+        openFileDialog(this, _("Open  file"), "", "",
+                       "", wxFD_OPEN|wxFD_FILE_MUST_EXIST);
+    if (openFileDialog.ShowModal() == wxID_CANCEL)
+        return;     // the user changed idea...
+
+    if( ! theSim.FileOpen( openFileDialog.GetPath().ToStdString() ) )
+        wxMessageBox("Failed to read model");
+
+}
 void MyFrame::onViewStations(wxCommandEvent& WXUNUSED(event))
 {
     dlgStations->Show();
@@ -514,7 +538,7 @@ void cGraphic::RenderStations( wxDC& DC )
     wxPen red( *wxRED_PEN );
     red.SetWidth( 3 );
 
-    DC.SetTextForeground( *wxWHITE );
+
 
     for ( auto stat : theSim.Stations )
     {
@@ -613,98 +637,3 @@ void cGraphic::RenderTrains( wxDC& DC )
 
     DC.SetPen( *wxBLUE_PEN );
 }
-
-namespace train {
-cTrain::cTrain( int track )
-    : myTrack( track )
-    , myfInStation( true )
-    , myfDestination( false )
-    , myTimeToDepart( theSim.Time )
-{
-    if( myTrack == 0 )
-    {
-        myIncrement = 5;
-        myLocationL = 0;
-        myStation = *theSim.Stations.begin();
-    }
-    else
-    {
-        myLocationL = theSim.Stations.back()->myLocation - 2;
-        myStation = theSim.Stations.back();
-        myIncrement = -5;
-    }
-}
-
-void cTrain::Advance()
-{
-    if( myfInStation )
-    {
-        if( theSim.Time < myTimeToDepart )
-            return;
-
-        // train ready to leave station
-        // check the light
-        if( ! myStation->IsLightGreen( myTrack ) )
-            return;
-
-        // Off we go!
-        if( myPrevStation )
-            myPrevStation->SetLight( myTrack, true );
-        myPrevStation = myStation;
-        myStation->SetLight( myTrack, false );
-        myfInStation = false;
-        if( myTrack == 0 )
-            myLocationL += 6;
-        else
-            myLocationL -= 6;
-    }
-
-    myLocationL += myIncrement;
-
-
-    for( auto station : theSim.Stations )
-    {
-        if( abs( myLocationL - station->myLocation) < 5 )
-        {
-            // train has arrived in station
-
-            myLocationL  = station->myLocation;
-            myfInStation = true;
-            myTimeToDepart = theSim.Time + rand() % 10 + 1;
-            myStation = station;
-
-            // check if train is at final station
-            if(
-                ( myTrack == 0 && myLocationL == theSim.Stations.back()->myLocation ) ||
-                ( myTrack == 1 && myLocationL == theSim.Stations[0]->myLocation ) )
-            {
-                myfDestination = true;
-                myPrevStation->SetLight( myTrack, true );
-            }
-            break;
-        }
-    }
-}
-std::string cTrain::TextStatus()
-{
-    if( myfInStation )
-        return "at";
-    else
-        return "leaving";
-}
-std::string cTrain::TextPosition()
-{
-    if( myPrevStation )
-        return( myPrevStation->myName );
-    else
-        return "";
-}
-std::string cTrain::TextTrack()
-{
-    if( myTrack == 0 )
-        return "Alpha";
-    else
-        return "Beta";
-}
-}
-
