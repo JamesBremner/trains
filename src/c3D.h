@@ -1,10 +1,10 @@
 namespace train {
-class c3D
+class cThreeD
 {
 public:
     wxGLCanvas * myCanvas;
 
-    c3D( wxWindow * parent );
+    cThreeD( wxWindow * parent );
 
     void Render();
     void RenderTracks();
@@ -12,6 +12,11 @@ public:
     void RenderStations();
 
     void Size( int w, int h );
+
+    void FocusStation( station_t stat )
+    {
+        myFocusStation = stat;
+    }
 
 
 private:
@@ -26,6 +31,7 @@ private:
     int myWindowWidth;
     int myWindowHeight;
     float myConvertL2F;
+    station_t myFocusStation;
 
     /** Load GL shaders into GPU */
     void LoadShaders();

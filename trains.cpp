@@ -2,11 +2,6 @@
 #include <vector>
 #include <memory>
 
-// Include GLEW
-#define GLEW_STATIC
-#include <GL/glew.h>
-#include "glm.hpp"
-#include <gtc/matrix_transform.hpp>
 
 #include <wx/wx.h>
 #include <wx/app.h>
@@ -17,188 +12,33 @@
 #include "cTrain.h"
 #include "cSimulator.h"
 #include "c3D.h"
+#include "cTwoD.h"
 
 // ----------------------------------------------------------------------------
 // private classes
 // ----------------------------------------------------------------------------
 
-/** Graphical display of railway
 
-L   distance from A in real world along railway line
-
-P   distance from A in pixels along railway line
-
-X,Y  location in pixels on display screen
-
- */
-class cGraphic : public wxPanel
-{
-public:
-    cGraphic( wxFrame* parent )
-        : wxPanel(parent)
-    {
-        //wxClientDC DC(this);
-        // Render(DC);
-        Bind( wxEVT_PAINT, &cGraphic::OnPaint, this );
-    }
-    void OnPaint( wxPaintEvent& event )
-    {
-        wxPaintDC DC( this );
-        Render( DC );
-    }
-
-    void SetConvertL2P();
-
-    void RenderTrack( wxDC& DC, int margin )
-    {
-
-        DC.DrawLine( 0.667 * myWindowWidth, margin,
-                     myWindowWidth - margin, margin  );
-
-        DC.DrawLine( myWindowWidth - margin, margin,
-                     myWindowWidth - margin, myWindowHeight - margin );
-
-        DC.DrawLine( myWindowWidth - margin, myWindowHeight - margin,
-                     margin, myWindowHeight - margin );
-
-        DC.DrawLine( margin, myWindowHeight - margin,
-                     margin, margin );
-
-        DC.DrawLine( margin, margin,
-                     0.333 * myWindowWidth, margin );
-
-    }
-
-    void RenderTracks( wxDC& DC )
-    {
-        wxPen pen( *wxBLUE_PEN );
-        pen.SetWidth( 5 );
-        DC.SetPen( pen );
-        RenderTrack( DC, 10 );
-        RenderTrack( DC, 30 );
-        DC.SetPen( *wxBLUE_PEN );
-    }
-
-
-    void RenderStations( wxDC& DC );
-
-    void RenderTrains( wxDC& DC );
-
-    void Render( wxDC& DC )
-    {
-        SetBackgroundColour( *wxBLACK );
-        DC.SetTextForeground( *wxWHITE );
-
-        SetConvertL2P();
-
-        DC.DrawText( theSim.myTitle.c_str(),
-                     0.4 * myWindowWidth, 10 );
-
-        RenderTracks( DC );
-
-        RenderStations( DC );
-
-        RenderTrains( DC );
-
-    }
-    enum class edge
-    {
-        none, top, right, bottom, left
-    };
-    edge Convert( int& x, int& y,       // pixel location
-                  int loc,              // location from terminus A
-                  int margin
-                )
-    {
-
-        float locP = loc * myConvertL2P;
-
-        if( locP < myTopRightP )
-        {
-            x = .667 * myWindowWidth + locP;
-            y = margin;
-            return edge::top;
-        }
-        if( locP < myBottomRightP )
-        {
-            x = myWindowWidth - margin;
-            y = locP - myTopRightP;
-            return edge::right;
-        }
-        if( locP < 1.33 * myWindowWidth + myWindowHeight )
-        {
-            x = myWindowWidth - locP + myBottomRightP;
-            y = myWindowHeight - margin;
-            return edge::bottom;
-        }
-        if( locP < myTopLeftP )
-        {
-            x = margin;
-            y = myWindowHeight - locP + 1.33 * myWindowWidth + myWindowHeight;
-            return edge::left;
-        }
-        if( locP <= myMaxP )
-        {
-            x = locP - myTopLeftP;
-            y = margin;
-            return edge::top;
-        }
-
-        x = -10;
-        y = -10;
-        return edge::none;
-    }
-
-
-private:
-    int myWindowWidth;
-    int myWindowHeight;
-    int myMaxP;
-    int myTopRightP;
-    int myBottomRightP;
-    int myTopLeftP;
-    float myConvertL2P;     // convert factor from real world distance to pixels
-
-};
-
-
-cGraphic * theGraphic;
-train::c3D * the3D;
+train::cTwoD * theGraphic;
+train::cThreeD * the3D;
 train::cSimulator theSim;
 
+/** Display table of stations */
 class cDLGStations : public wxDialog
 {
     wxGrid * myGrid;
 public:
-    cDLGStations( wxWindow* parent )
-        : wxDialog( parent, -1, "Stations" )
-    {
-        wxBoxSizer * szr = new wxBoxSizer( wxVERTICAL );
-        myGrid = new wxGrid( this, -1,
-                             wxDefaultPosition, // position
-                             wxSize(-1,-1) );
-        myGrid->CreateGrid( 14, 2 );
-        myGrid->EnableEditing( false );
-        myGrid->SetColLabelValue(0,"Name");
-        myGrid->SetColSize( 0, 220 );
-        myGrid->SetColLabelValue(1,"Distance");
+    cDLGStations( wxWindow* parent );
 
-        szr->Add( myGrid );
-        SetSizerAndFit( szr );
+    void Populate();
 
-    }
+    /** User has double clicked on station table
 
-    void Populate()
-    {
-        int row = 0;
-        for( auto station : theSim.Stations )
-        {
-            myGrid->SetCellValue( row,0, station->myName );
-            myGrid->SetCellValue( row,1,
-                                  wxString::Format("%d",station->myLocation ));
-            row++;
-        }
-    }
+    Click on a particular station to zoom in the 3D animation on that stations
+    Click on the table header row to zoom out on the entire railway
+
+    */
+    void onSelectStation( wxGridEvent& event );
 };
 
 
@@ -262,7 +102,7 @@ public:
     MyFrame(const wxString& title);
     void ConstructMenu();
 
-    // event handlers (these functions should _not_ be virtual)
+    // event handlers
     void OnQuit(wxCommandEvent& event);
     void OnAbout(wxCommandEvent& event);
     void OnSize(wxSizeEvent& event);
@@ -273,6 +113,7 @@ public:
     void onView3D(wxCommandEvent& WXUNUSED(event));
     void onFileOpen(wxCommandEvent& WXUNUSED(event));
     void onFileSave(wxCommandEvent& WXUNUSED(event));
+
 
     wxTimer myTimer;
     cDLGStations * dlgStations;
@@ -410,12 +251,12 @@ MyFrame::MyFrame(const wxString& title)
 
     wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
 
-    theGraphic = new cGraphic(this);
+    theGraphic = new train::cTwoD(this);
     sizer->Add(theGraphic, 1, wxEXPAND);
     SetSizer(sizer);
     SetAutoLayout(true);
 
-    the3D = new train::c3D( this );
+    the3D = new train::cThreeD( this );
 
     Show();
 
@@ -553,127 +394,47 @@ void MyFrame::OnAbout(wxCommandEvent& WXUNUSED(event))
                  this);
 }
 
-void cGraphic::SetConvertL2P()
+void cDLGStations::onSelectStation( wxGridEvent& event )
 {
-    GetClientSize( &myWindowWidth, &myWindowHeight );
-
-//        myWindowHeight -= 50;
-//        myWindowWidth  -= 50;
-
-    // Maximum line length in pixels
-    myMaxP = 1.667 * myWindowWidth + 2.0 * myWindowHeight;
-
-    myConvertL2P = (float)myMaxP / theSim.Stations.back()->myLocation;
-
-    myTopRightP = 0.33 * myWindowWidth;
-    myBottomRightP = myTopRightP + myWindowHeight;
-    myTopLeftP = 1.333 * myWindowWidth + 2 * myWindowHeight;
-
-}
-void cGraphic::RenderStations( wxDC& DC )
-{
-    wxPen green( *wxGREEN_PEN );
-    green.SetWidth( 3 );
-
-    wxPen red( *wxRED_PEN );
-    red.SetWidth( 3 );
-
-
-
-    for ( auto stat : theSim.Stations )
+    int index = event.GetRow();
+    if( index >= 0 )
+        the3D->FocusStation( theSim.Stations[ index ] );
+    else
     {
-        int x, y;
-        edge E = Convert(
-                     x, y,
-                     stat->myLocation,
-                     20
-                 );
-        DC.SetPen( *wxBLACK_PEN );
-        DC.DrawCircle( x, y, 20 );
+        station_t null;
+        the3D->FocusStation( null );
+    }
+}
 
-        // station name
-        int xt = x;
-        int yt = y;
-        switch( E )
-        {
-        case edge::top:
-            xt -= 50;
-            yt += 20;
-            break;
-        case edge::right:
-            xt -= 130;
-            break;
-        case edge::bottom:
-            xt -= 50;
-            yt -= 40;
-            break;
-        case edge::left:
-            xt += 40;
-            break;
+    cDLGStations::cDLGStations( wxWindow* parent )
+        : wxDialog( parent, -1, "Stations" )
+    {
+        wxBoxSizer * szr = new wxBoxSizer( wxVERTICAL );
+        myGrid = new wxGrid( this, -1,
+                             wxDefaultPosition, // position
+                             wxSize(-1,-1) );
+        myGrid->CreateGrid( 14, 2 );
+        myGrid->EnableEditing( false );
+        myGrid->SetColLabelValue(0,"Name");
+        myGrid->SetColSize( 0, 220 );
+        myGrid->SetColLabelValue(1,"Distance");
 
-        }
-        DC.DrawText( stat->myName, xt, yt );
+        szr->Add( myGrid );
+        SetSizerAndFit( szr );
 
-
-        if( stat->IsLightGreen( 0 ) )
-            DC.SetPen( green );
-        else
-            DC.SetPen( red );
-
-        Convert(
-            x, y,
-            stat->myLocation + 10,
-            10
-        );
-
-        DC.DrawCircle( x, y, 5 );
-
-
-        if( stat->IsLightGreen( 1 ) )
-            DC.SetPen( green );
-        else
-            DC.SetPen( red );
-
-        Convert(
-            x, y,
-            stat->myLocation - 10,
-            30
-        );
-
-        DC.DrawCircle( x, y, 5 );
-
+        Bind( wxEVT_GRID_CELL_LEFT_DCLICK, &cDLGStations::onSelectStation, this );
+        Bind( wxEVT_GRID_LABEL_LEFT_DCLICK, &cDLGStations::onSelectStation, this );
 
     }
 
-    DC.SetPen( *wxWHITE_PEN );
-}
-void cGraphic::RenderTrains( wxDC& DC )
-{
-    wxPen pen( *wxGREEN_PEN );
-    pen.SetWidth( 8 );
-    DC.SetPen( pen );
-
-    for( auto train : theSim.Trains )
+        void cDLGStations::Populate()
     {
-        int margin = 10;
-        if( train->Track() == 1 )
-            margin = 30;
-        wxPoint p1, p2;
-        Convert(
-            p1.x, p1.y,
-            train->LocationL()-2,
-            margin);
-        Convert(
-            p2.x, p2.y,
-            train->LocationL()+2,
-            margin );
-        if( p2.x < 0 )
+        int row = 0;
+        for( auto station : theSim.Stations )
         {
-            DC.SetPen( *wxBLUE_PEN );
-            return;
+            myGrid->SetCellValue( row,0, station->myName );
+            myGrid->SetCellValue( row,1,
+                                  wxString::Format("%d",station->myLocation ));
+            row++;
         }
-        DC.DrawLine( p1, p2 );
     }
-
-    DC.SetPen( *wxBLUE_PEN );
-}

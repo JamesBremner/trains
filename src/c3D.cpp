@@ -9,12 +9,13 @@
 #include <wx/wx.h>
 #include <wx/glcanvas.h>
 
+#include "cStation.h"
 #include "c3D.h"
 #include "cSimulator.h"
 
 namespace train
 {
-c3D::c3D( wxWindow * parent )
+cThreeD::cThreeD( wxWindow * parent )
 {
     wxGLAttributes dispAttrs;
     dispAttrs.PlatformDefaults().EndList();
@@ -49,7 +50,7 @@ c3D::c3D( wxWindow * parent )
 }
 
 
-void c3D::Render()
+void cThreeD::Render()
 {
 
     myConvertL2F = 7.33 / theSim.Stations.back()->myLocation;
@@ -119,7 +120,7 @@ void c3D::Render()
     myCanvas->SwapBuffers();
 }
 
-void c3D::Size( int w, int h )
+void cThreeD::Size( int w, int h )
 {
     myWindowWidth = w;
     myWindowHeight = h;
@@ -127,31 +128,66 @@ void c3D::Size( int w, int h )
     glViewport(0, 0, myWindowWidth, myWindowHeight);
 }
 
-void c3D::Camera()
+void cThreeD::Camera()
 {
 
     float aspectRatio = (float)myWindowWidth / myWindowHeight;
 
-    float xSpan = 1;
-    float ySpan = 1;
+    glm::vec3 center(0,0,0);
+    glm::mat4 ProjMatrix;
 
-    if (aspectRatio > 1)
+
+    if( ! myFocusStation )
     {
-        // Width > Height, so scale xSpan accordinly.
-        xSpan *= aspectRatio;
+        float xSpan = 1;
+        float ySpan = 1;
+
+        if (aspectRatio > 1)
+        {
+            // Width > Height, so scale xSpan accordinly.
+            xSpan *= aspectRatio;
+        }
+        else
+        {
+            // Height >= Width, so scale ySpan accordingly.
+            ySpan = xSpan / aspectRatio;
+        }
+
+        ProjMatrix = glm::ortho(
+                                   -1*xSpan, xSpan, -1*ySpan, ySpan,
+                                   100.0f,-100.0f);
     }
     else
     {
-        // Height >= Width, so scale ySpan accordingly.
-        ySpan = xSpan / aspectRatio;
+        float xSpan = 0.2;
+        float ySpan = 0.2;
+
+        if (aspectRatio > 1)
+        {
+            // Width > Height, so scale xSpan accordinly.
+            xSpan *= aspectRatio;
+        }
+        else
+        {
+            // Height >= Width, so scale ySpan accordingly.
+            ySpan = xSpan / aspectRatio;
+        }
+
+        ProjMatrix = glm::ortho(
+                                   -1*xSpan, xSpan, -1*ySpan, ySpan,
+                                   100.0f,-100.0f);
+
+        float x, y;
+        Convert( x, y,
+                 myFocusStation->myLocation,
+                 0.075 );
+        center = glm::vec3( x, y, 0 );
+
     }
 
-    glm::mat4 ProjMatrix = glm::ortho(
-                               -1*xSpan, xSpan, -1*ySpan, ySpan,
-                               100.0f,-100.0f);
     glm::mat4 ViewMatrix = glm::lookAt(
                                glm::vec3(0,0,10),           // Camera is here
-                               glm::vec3(0,0,0), // and looks here : at the same position, plus "direction"
+                               center, // and looks here : at the same position, plus "direction"
                                glm::vec3(0,1,0)                // Head is up (set to 0,-1,0 to look upside-down)
                            );
     glm::mat4 MVP = ProjMatrix * ViewMatrix;
@@ -164,7 +200,7 @@ void c3D::Camera()
         (float*) &MVP );
 }
 
-void c3D::RenderStations()
+void cThreeD::RenderStations()
 {
     std::vector< float > white { 1, 1, 1 };
     std::vector< float > red { 1, 0, 0 };
@@ -213,7 +249,7 @@ void c3D::RenderStations()
     }
 }
 
-void c3D::RenderTracks()
+void cThreeD::RenderTracks()
 {
     std::vector< float > color { 0, 0, 1 };
     myCurrentColor = color;
@@ -221,7 +257,7 @@ void c3D::RenderTracks()
     RenderTrack( 0.1 );
 }
 
-void c3D::RenderTrack( float margin )
+void cThreeD::RenderTrack( float margin )
 {
     DrawLine(  0.33, 1 - margin, 1 - margin, 1 - margin, 0.01, false );
     DrawLine(  1 - margin, 1 - margin, 1 - margin, -1 + margin, 0.01, true );
@@ -230,7 +266,7 @@ void c3D::RenderTrack( float margin )
     DrawLine( -1 + margin, 1 - margin, -0.33, 1 - margin, 0.01, false );
 }
 
-void c3D::RenderTrains()
+void cThreeD::RenderTrains()
 {
     std::vector< float > color { 0, 1, 0 };
     myCurrentColor = color;
@@ -258,7 +294,7 @@ void c3D::RenderTrains()
     }
 }
 
-void c3D::DrawLine(
+void cThreeD::DrawLine(
     float x1, float y1, float x2, float y2,
     float width2, bool isVertical )
 {
@@ -315,7 +351,7 @@ void c3D::DrawLine(
     }
 }
 
-void c3D::LoadShaders()
+void cThreeD::LoadShaders()
 {
 
     // Create the shaders
@@ -431,10 +467,10 @@ void c3D::LoadShaders()
 
 }
 
-c3D::edge c3D::Convert( float& x, float& y,       // pixel location
-                        int loc,              // location from terminus A
-                        float margin
-                      )
+cThreeD::edge cThreeD::Convert( float& x, float& y,       // pixel location
+                                int loc,              // location from terminus A
+                                float margin
+                              )
 {
 
     float locF = loc * myConvertL2F;
