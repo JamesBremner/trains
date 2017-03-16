@@ -48,10 +48,13 @@
 			<Add option="-D_mingw_" />
 			<Add option="-DM3SimGraph" />
 			<Add directory="$(#boost.include)" />
-			<Add directory="../src" />
+			<Add directory="src" />
 			<Add directory="." />
 			<Add directory="$(#wxwidgets.include)" />
 			<Add directory="$(#wxwidgets.setup)" />
+			<Add directory="src/ext" />
+			<Add directory="$(#glew.include)" />
+			<Add directory="$(#glm)" />
 		</Compiler>
 		<Linker>
 			<Add library="boost_system-mgw49-mt-1_63" />
@@ -70,9 +73,20 @@
 			<Add library="wxexpat" />
 			<Add library="version" />
 			<Add library="shlwapi" />
+			<Add library="wxmsw31u_gl" />
+			<Add library="glew32s" />
+			<Add library="opengl32" />
 			<Add directory="$(#boost.lib)" />
 			<Add directory="$(#wxwidgets.lib)" />
+			<Add directory="$(#glew.lib)" />
 		</Linker>
+		<Unit filename="src/c3D.cpp" />
+		<Unit filename="src/c3D.h" />
+		<Unit filename="src/cSimulator.cpp" />
+		<Unit filename="src/cSimulator.h" />
+		<Unit filename="src/cStation.h" />
+		<Unit filename="src/cTrain..cpp" />
+		<Unit filename="src/cTrain.h" />
 		<Unit filename="trains.cpp" />
 		<Extensions>
 			<code_completion />

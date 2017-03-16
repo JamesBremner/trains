@@ -2,13 +2,21 @@
 #include <vector>
 #include <memory>
 
+// Include GLEW
+#define GLEW_STATIC
+#include <GL/glew.h>
+#include "glm.hpp"
+#include <gtc/matrix_transform.hpp>
+
 #include <wx/wx.h>
 #include <wx/app.h>
 #include <wx/grid.h>
+#include <wx/glcanvas.h>
 
 #include "cStation.h"
 #include "cTrain.h"
 #include "cSimulator.h"
+#include "c3D.h"
 
 // ----------------------------------------------------------------------------
 // private classes
@@ -84,7 +92,7 @@ public:
         SetConvertL2P();
 
         DC.DrawText( theSim.myTitle.c_str(),
-                    0.4 * myWindowWidth, 10 );
+                     0.4 * myWindowWidth, 10 );
 
         RenderTracks( DC );
 
@@ -154,10 +162,8 @@ private:
 };
 
 
-
-
 cGraphic * theGraphic;
-
+train::c3D * the3D;
 train::cSimulator theSim;
 
 class cDLGStations : public wxDialog
@@ -263,6 +269,8 @@ public:
     void onTimer( wxTimerEvent& event);
     void onViewStations(wxCommandEvent& WXUNUSED(event));
     void onViewTrains(wxCommandEvent& WXUNUSED(event));
+    void onView2D(wxCommandEvent& WXUNUSED(event));
+    void onView3D(wxCommandEvent& WXUNUSED(event));
     void onFileOpen(wxCommandEvent& WXUNUSED(event));
     void onFileSave(wxCommandEvent& WXUNUSED(event));
 
@@ -297,6 +305,8 @@ enum
     IDM_FILE_SAVE,
     IDM_VIEW_STATIONS,
     IDM_VIEW_TRAINS,
+    IDM_VIEW_2D,
+    IDM_VIEW_3D,
 };
 
 // ----------------------------------------------------------------------------
@@ -405,6 +415,8 @@ MyFrame::MyFrame(const wxString& title)
     SetSizer(sizer);
     SetAutoLayout(true);
 
+    the3D = new train::c3D( this );
+
     Show();
 
     dlgStations = new cDLGStations(this);
@@ -425,17 +437,25 @@ void MyFrame::ConstructMenu()
     fileMenu->Append(IDM_FILE_OPEN,"Open");
     Bind(wxEVT_MENU,&MyFrame::onFileOpen,this, IDM_FILE_OPEN);
     fileMenu->Append(IDM_FILE_SAVE,"Save");
-     Bind(wxEVT_MENU,&MyFrame::onFileSave,this, IDM_FILE_SAVE);
+    Bind(wxEVT_MENU,&MyFrame::onFileSave,this, IDM_FILE_SAVE);
 
     fileMenu->Append(Minimal_Quit, _T("E&xit\tAlt-X"), _T("Quit this program"));
     menuBar->Append(fileMenu, _T("&File"));
 
     wxMenu *viewMenu = new wxMenu;
-    viewMenu->AppendRadioItem(IDM_VIEW_STATIONS, "Stations");
+    wxMenu *tableMenu = new wxMenu;
+    tableMenu->AppendRadioItem(IDM_VIEW_STATIONS, "Stations");
     Bind(wxEVT_MENU,&MyFrame::onViewStations,this,IDM_VIEW_STATIONS);
-    viewMenu->AppendRadioItem(IDM_VIEW_TRAINS, "Trains");
+    tableMenu->AppendRadioItem(IDM_VIEW_TRAINS, "Trains");
     Bind(wxEVT_MENU,&MyFrame::onViewTrains,this,IDM_VIEW_TRAINS);
+    viewMenu->AppendSubMenu( tableMenu, "Tables");
+    wxMenu *animMenu = new wxMenu;
+    animMenu->AppendRadioItem(IDM_VIEW_2D, "Two D ( GDI )");
+    Bind(wxEVT_MENU,&MyFrame::onView2D,this,IDM_VIEW_2D);
+    animMenu->AppendRadioItem(IDM_VIEW_3D, "Three D ( OpenGL )");
+    Bind(wxEVT_MENU,&MyFrame::onView3D,this,IDM_VIEW_3D);
     menuBar->Append(viewMenu, _T("View"));
+    viewMenu->AppendSubMenu( animMenu, "Animation");
 
     wxMenu *helpMenu = new wxMenu;
     helpMenu->Append(Minimal_About, _T("&About...\tF1"), _T("Show about dialog"));
@@ -459,6 +479,8 @@ void MyFrame::onTimer( wxTimerEvent& event)
 
     Refresh();
 
+    the3D->Render();
+
     if( theSim.Time == 1 )
     {
         dlgStations->Populate();
@@ -468,8 +490,8 @@ void MyFrame::onTimer( wxTimerEvent& event)
 
 void MyFrame::onFileSave(wxCommandEvent& WXUNUSED(event))
 {
-     wxFileDialog        saveFileDialog(this, _("Save file"), "", "",
-                       "", wxFD_SAVE|wxFD_OVERWRITE_PROMPT);
+    wxFileDialog        saveFileDialog(this, _("Save file"), "", "",
+                                       "", wxFD_SAVE|wxFD_OVERWRITE_PROMPT);
     if (saveFileDialog.ShowModal() == wxID_CANCEL)
         return;     // the user changed idea...
 
@@ -479,8 +501,8 @@ void MyFrame::onFileSave(wxCommandEvent& WXUNUSED(event))
 void MyFrame::onFileOpen(wxCommandEvent& WXUNUSED(event))
 {
     wxFileDialog
-        openFileDialog(this, _("Open  file"), "", "",
-                       "", wxFD_OPEN|wxFD_FILE_MUST_EXIST);
+    openFileDialog(this, _("Open  file"), "", "",
+                   "", wxFD_OPEN|wxFD_FILE_MUST_EXIST);
     if (openFileDialog.ShowModal() == wxID_CANCEL)
         return;     // the user changed idea...
 
@@ -497,6 +519,16 @@ void MyFrame::onViewTrains(wxCommandEvent& WXUNUSED(event))
 {
     dlgStations->Hide();
     dlgTrains->Show();
+}
+void MyFrame::onView2D(wxCommandEvent& WXUNUSED(event))
+{
+    the3D->myCanvas->Hide();
+    theGraphic->Show();
+}
+void MyFrame::onView3D(wxCommandEvent& WXUNUSED(event))
+{
+     the3D->myCanvas->Show();
+    theGraphic->Hide();
 }
 
 void MyFrame::OnQuit(wxCommandEvent& WXUNUSED(event))
