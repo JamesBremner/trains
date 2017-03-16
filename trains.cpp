@@ -470,6 +470,10 @@ void MyFrame::OnSize(wxSizeEvent& event )
 {
     Refresh();
 
+    int w, h;
+    GetClientSize( &w, &h );
+    the3D->Size( w, h );
+
     event.Skip();
 }
 
@@ -529,6 +533,10 @@ void MyFrame::onView3D(wxCommandEvent& WXUNUSED(event))
 {
      the3D->myCanvas->Show();
     theGraphic->Hide();
+       int w, h;
+    GetClientSize( &w, &h );
+    the3D->Size( w, h );
+
 }
 
 void MyFrame::OnQuit(wxCommandEvent& WXUNUSED(event))

@@ -9,6 +9,9 @@ public:
     void Render();
     void RenderTracks();
 
+    void Size( int w, int h );
+
+
 private:
 
     std::vector< float > myVx;
@@ -17,6 +20,8 @@ private:
     GLuint myShaderID;
     GLuint myVertexBufferID;
     GLuint myColorBufferID;
+    int myWindowWidth;
+    int myWindowHeight;
 
     /** Load GL shaders into GPU */
     void LoadShaders();

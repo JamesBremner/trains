@@ -85,7 +85,7 @@
 		<Unit filename="src/cSimulator.cpp" />
 		<Unit filename="src/cSimulator.h" />
 		<Unit filename="src/cStation.h" />
-		<Unit filename="src/cTrain..cpp" />
+		<Unit filename="src/cTrain.cpp" />
 		<Unit filename="src/cTrain.h" />
 		<Unit filename="trains.cpp" />
 		<Extensions>

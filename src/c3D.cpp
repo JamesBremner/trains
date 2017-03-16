@@ -53,6 +53,8 @@ void c3D::Render()
     myClr.clear();
     RenderTracks();
 
+
+
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
@@ -111,9 +113,36 @@ void c3D::Render()
     myCanvas->SwapBuffers();
 }
 
+void c3D::Size( int w, int h )
+{
+    myWindowWidth = w;
+    myWindowHeight = h;
+    myCanvas->SetSize( -1, -1, myWindowWidth, myWindowHeight );
+    glViewport(0, 0, myWindowWidth, myWindowHeight);
+}
+
 void c3D::Camera()
 {
-    glm::mat4 ProjMatrix = glm::ortho(-1,1,-1,1,100,-100);
+
+    float aspectRatio = (float)myWindowWidth / myWindowHeight;
+
+    float xSpan = 1; // Feel free to change this to any xSpan you need.
+    float ySpan = 1; // Feel free to change this to any ySpan you need.
+
+    if (aspectRatio > 1)
+    {
+        // Width > Height, so scale xSpan accordinly.
+        xSpan *= aspectRatio;
+    }
+    else
+    {
+        // Height >= Width, so scale ySpan accordingly.
+        ySpan = xSpan / aspectRatio;
+    }
+
+    glm::mat4 ProjMatrix = glm::ortho(
+                               -1*xSpan, xSpan, -1*ySpan, ySpan,
+                               100.0f,-100.0f);
     glm::mat4 ViewMatrix = glm::lookAt(
                                glm::vec3(0,0,10),           // Camera is here
                                glm::vec3(0,0,0), // and looks here : at the same position, plus "direction"
@@ -145,51 +174,52 @@ void c3D::RenderTrack( float margin )
 }
 
 void c3D::DrawLine(
-                    float x1, float y1, float x2, float y2,
-                    float width2, bool isVertical )
+    float x1, float y1, float x2, float y2,
+    float width2, bool isVertical )
 {
-    if( isVertical ) {
-    myVx.push_back( x1 - width2  );
-    myVx.push_back( y1 );
-    myVx.push_back( 0 );
-    myVx.push_back( x1 + width2  );
-    myVx.push_back( y1 );
-    myVx.push_back( 0 );
-    myVx.push_back( x1 - width2  );
-    myVx.push_back( y2 );
-    myVx.push_back( 0 );
+    if( isVertical )
+    {
+        myVx.push_back( x1 - width2  );
+        myVx.push_back( y1 );
+        myVx.push_back( 0 );
+        myVx.push_back( x1 + width2  );
+        myVx.push_back( y1 );
+        myVx.push_back( 0 );
+        myVx.push_back( x1 - width2  );
+        myVx.push_back( y2 );
+        myVx.push_back( 0 );
 
-    myVx.push_back( x1 + width2  );
-    myVx.push_back( y1 );
-    myVx.push_back( 0 );
-    myVx.push_back( x1 + width2  );
-    myVx.push_back( y2 );
-    myVx.push_back( 0 );
-    myVx.push_back( x1 - width2  );
-    myVx.push_back( y2 );
-    myVx.push_back( 0 );
+        myVx.push_back( x1 + width2  );
+        myVx.push_back( y1 );
+        myVx.push_back( 0 );
+        myVx.push_back( x1 + width2  );
+        myVx.push_back( y2 );
+        myVx.push_back( 0 );
+        myVx.push_back( x1 - width2  );
+        myVx.push_back( y2 );
+        myVx.push_back( 0 );
     }
     else
     {
-     myVx.push_back( x1  );
-    myVx.push_back( y1 - width2 );
-    myVx.push_back( 0 );
-    myVx.push_back( x1  );
-    myVx.push_back( y1 + width2 );
-    myVx.push_back( 0 );
-    myVx.push_back( x2  );
-    myVx.push_back( y2 + width2 );
-    myVx.push_back( 0 );
+        myVx.push_back( x1  );
+        myVx.push_back( y1 - width2 );
+        myVx.push_back( 0 );
+        myVx.push_back( x1  );
+        myVx.push_back( y1 + width2 );
+        myVx.push_back( 0 );
+        myVx.push_back( x2  );
+        myVx.push_back( y2 + width2 );
+        myVx.push_back( 0 );
 
-    myVx.push_back( x1  );
-    myVx.push_back( y1 + width2 );
-    myVx.push_back( 0 );
-    myVx.push_back( x2  );
-    myVx.push_back( y2 + width2 );
-    myVx.push_back( 0 );
-    myVx.push_back( x2  );
-    myVx.push_back( y2 - width2 );
-    myVx.push_back( 0 );
+        myVx.push_back( x1  );
+        myVx.push_back( y1 + width2 );
+        myVx.push_back( 0 );
+        myVx.push_back( x2  );
+        myVx.push_back( y2 + width2 );
+        myVx.push_back( 0 );
+        myVx.push_back( x2  );
+        myVx.push_back( y2 - width2 );
+        myVx.push_back( 0 );
 
     }
 
@@ -233,7 +263,7 @@ void c3D::LoadShaders()
         "}\n";
 
 
-     //           "	color = vec3(1,0,0);\n"
+    //           "	color = vec3(1,0,0);\n"
 
     GLint Result = GL_FALSE;
     int InfoLogLength;
