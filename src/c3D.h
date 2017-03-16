@@ -8,6 +8,7 @@ public:
 
     void Render();
     void RenderTracks();
+    void RenderTrains();
 
     void Size( int w, int h );
 
@@ -16,12 +17,14 @@ private:
 
     std::vector< float > myVx;
     std::vector< float > myClr;
+    std::vector< float > myCurrentColor;
     GLuint myMatrixID;
     GLuint myShaderID;
     GLuint myVertexBufferID;
     GLuint myColorBufferID;
     int myWindowWidth;
     int myWindowHeight;
+    float myConvertL2F;
 
     /** Load GL shaders into GPU */
     void LoadShaders();
@@ -33,6 +36,16 @@ private:
                    float width2, bool isVertical );
 
     void Camera();
+
+        enum class edge
+    {
+        none, top, right, bottom, left
+    };
+    edge Convert( float& x, float& y,       // pixel location
+                  int loc,              // location from terminus A
+                  float margin
+                );
+
 };
 
 }

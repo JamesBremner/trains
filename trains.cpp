@@ -157,7 +157,7 @@ private:
     int myTopRightP;
     int myBottomRightP;
     int myTopLeftP;
-    float myConvertL2P;
+    float myConvertL2P;     // convert factor from real world distance to pixels
 
 };
 

@@ -1,3 +1,4 @@
+#include <memory>
 
 // Include GLEW
 #define GLEW_STATIC
@@ -9,6 +10,7 @@
 #include <wx/glcanvas.h>
 
 #include "c3D.h"
+#include "cSimulator.h"
 
 namespace train
 {
@@ -49,10 +51,13 @@ c3D::c3D( wxWindow * parent )
 
 void c3D::Render()
 {
+
+    myConvertL2F = 7.33 / theSim.Stations.back()->myLocation;
+
     myVx.clear();
     myClr.clear();
     RenderTracks();
-
+    RenderTrains();
 
 
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -126,8 +131,8 @@ void c3D::Camera()
 
     float aspectRatio = (float)myWindowWidth / myWindowHeight;
 
-    float xSpan = 1; // Feel free to change this to any xSpan you need.
-    float ySpan = 1; // Feel free to change this to any ySpan you need.
+    float xSpan = 1;
+    float ySpan = 1;
 
     if (aspectRatio > 1)
     {
@@ -160,6 +165,8 @@ void c3D::Camera()
 
 void c3D::RenderTracks()
 {
+    std::vector< float > color { 0, 0, 1 };
+    myCurrentColor = color;
     RenderTrack( 0.05 );
     RenderTrack( 0.1 );
 }
@@ -171,6 +178,34 @@ void c3D::RenderTrack( float margin )
     DrawLine(  1 - margin, -1 + margin, -1 + margin, -1 + margin, 0.01, false );
     DrawLine(  -1 + margin, 1 - margin, -1 + margin, -1 + margin, 0.01, true );
     DrawLine( -1 + margin, 1 - margin, -0.33, 1 - margin, 0.01, false );
+}
+
+void c3D::RenderTrains()
+{
+    std::vector< float > color { 0, 1, 0 };
+    myCurrentColor = color;
+    float margin = 0.05;
+    //DrawLine( 0.5, 1 - margin, 0.55, 1 - margin, 0.04, false );
+
+        for( auto train : theSim.Trains )
+    {
+        float margin = 0.05;
+        if( train->Track() == 1 )
+            margin = 0.1;
+        float x1, y1, x2, y2;
+        Convert(
+            x1, y1,
+            train->LocationL()-4,
+            margin);
+        edge e = Convert(
+            x2, y2,
+            train->LocationL()+4,
+            margin );
+        bool fVert = true;
+        if( e == edge::top || e == edge::bottom)
+            fVert = false;
+        DrawLine( x1, y1, x2, y2, 0.01, fVert );
+    }
 }
 
 void c3D::DrawLine(
@@ -185,17 +220,17 @@ void c3D::DrawLine(
         myVx.push_back( x1 + width2  );
         myVx.push_back( y1 );
         myVx.push_back( 0 );
-        myVx.push_back( x1 - width2  );
+        myVx.push_back( x2 - width2  );
         myVx.push_back( y2 );
         myVx.push_back( 0 );
 
-        myVx.push_back( x1 + width2  );
+        myVx.push_back( x2 + width2  );
         myVx.push_back( y1 );
         myVx.push_back( 0 );
-        myVx.push_back( x1 + width2  );
+        myVx.push_back( x2 - width2  );
         myVx.push_back( y2 );
         myVx.push_back( 0 );
-        myVx.push_back( x1 - width2  );
+        myVx.push_back( x1 + width2  );
         myVx.push_back( y2 );
         myVx.push_back( 0 );
     }
@@ -208,26 +243,25 @@ void c3D::DrawLine(
         myVx.push_back( y1 + width2 );
         myVx.push_back( 0 );
         myVx.push_back( x2  );
-        myVx.push_back( y2 + width2 );
+        myVx.push_back( y2 - width2 );
         myVx.push_back( 0 );
 
         myVx.push_back( x1  );
         myVx.push_back( y1 + width2 );
         myVx.push_back( 0 );
         myVx.push_back( x2  );
-        myVx.push_back( y2 + width2 );
+        myVx.push_back( y2 - width2 );
         myVx.push_back( 0 );
         myVx.push_back( x2  );
-        myVx.push_back( y2 - width2 );
+        myVx.push_back( y2 + width2 );
         myVx.push_back( 0 );
 
     }
 
     for( int k = 0; k<6; k++ )
     {
-        myClr.push_back( 0.0f );
-        myClr.push_back( 0.0f );
-        myClr.push_back( 1.0f );
+        myClr.insert( myClr.end(),
+                      myCurrentColor.begin(), myCurrentColor.end());
     }
 }
 
@@ -346,5 +380,44 @@ void c3D::LoadShaders()
 
 
 }
+
+    c3D::edge c3D::Convert( float& x, float& y,       // pixel location
+                  int loc,              // location from terminus A
+                  float margin
+                )
+    {
+
+        float locF = loc * myConvertL2F;
+        if( locF < .667 )
+        {
+            x = .33 + locF;
+            y = 1 - margin;
+            return edge::top;
+        }
+        else if ( locF < 2.667 )
+        {
+            x = 1 - margin;
+            y = 1 - locF + 0.667;
+            return edge::right;
+        }
+        else if ( locF < 4.667 )
+        {
+            x = 1 - locF + 2.667;
+            y = -1 + margin;
+            return edge::bottom;
+        }
+        else if( locF < 6.667 )
+        {
+            x = -1 + margin;
+            y = -1 + locF - 4.667;
+            return edge::left;
+        }
+        else if( locF < 7.33 )
+        {
+            x = -1 + locF - 6.667;
+            y = 1 - margin;
+            return edge::top;
+        }
+    }
 
 }
