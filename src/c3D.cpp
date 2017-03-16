@@ -8,6 +8,9 @@
 
 #include <wx/wx.h>
 #include <wx/glcanvas.h>
+extern "C" {
+#include "dblunt.h"
+}
 
 #include "cStation.h"
 #include "c3D.h"
@@ -154,8 +157,8 @@ void cThreeD::Camera()
         }
 
         ProjMatrix = glm::ortho(
-                                   -1*xSpan, xSpan, -1*ySpan, ySpan,
-                                   100.0f,-100.0f);
+                         -1*xSpan, xSpan, -1*ySpan, ySpan,
+                         100.0f,-100.0f);
     }
     else
     {
@@ -174,8 +177,8 @@ void cThreeD::Camera()
         }
 
         ProjMatrix = glm::ortho(
-                                   -1*xSpan, xSpan, -1*ySpan, ySpan,
-                                   100.0f,-100.0f);
+                         -1*xSpan, xSpan, -1*ySpan, ySpan,
+                         100.0f,-100.0f);
 
         float x, y;
         Convert( x, y,
@@ -200,6 +203,8 @@ void cThreeD::Camera()
         (float*) &MVP );
 }
 
+
+
 void cThreeD::RenderStations()
 {
     std::vector< float > white { 1, 1, 1 };
@@ -214,15 +219,50 @@ void cThreeD::RenderStations()
             x1, y1,
             stat->myLocation-5,
             0.075);
-        edge e = Convert(
+        edge E = Convert(
                      x2, y2,
                      stat->myLocation+5,
                      0.075);
         bool fVert = true;
-        if( e == edge::top || e == edge::bottom)
+        if( E == edge::top || E == edge::bottom)
             fVert = false;
 
         DrawLine( x1, y1, x2, y2, .02, fVert );
+
+        float xtoff, ytoff;
+        switch( E )
+        {
+        case edge::top:
+            xtoff = -0.05;
+            ytoff = -0.1;
+            break;
+        case edge::right:
+            xtoff = -.3;
+            ytoff = 0;
+            break;
+        case edge::bottom:
+            xtoff = -0.05;
+            ytoff = 0.1;
+            break;
+        case edge::left:
+            xtoff = 0.1;
+            ytoff = 0;
+            break;
+        default:
+            xtoff = 0;
+            ytoff = 0;
+            break;
+        }
+        float textw, texth;
+        float buf[2000];
+        int trcount = dblunt_string_to_vertices(
+                          stat->myName.c_str(),
+                          buf,
+                          2000 * sizeof(float),
+                          x1+xtoff, y1+ytoff,
+                           0.03, 0.03,
+                          &textw, &texth );
+        Tri2dTo3DVertex( buf, 0, trcount );
 
 
         Convert(
@@ -345,6 +385,29 @@ void cThreeD::DrawLine(
     }
 
     for( int k = 0; k<6; k++ )
+    {
+        myClr.insert( myClr.end(),
+                      myCurrentColor.begin(), myCurrentColor.end());
+    }
+}
+
+void cThreeD::Tri2dTo3DVertex( float* pt, float z, int trcount )
+{
+    for( int textv = 0; textv < trcount; textv++ )
+    {
+        myVx.push_back( *pt++ );
+        myVx.push_back( *pt++ );
+        myVx.push_back( z );
+        myVx.push_back( *pt++ );
+        myVx.push_back( *pt++ );
+        myVx.push_back( z );
+        myVx.push_back( *pt++ );
+        myVx.push_back( *pt++ );
+        myVx.push_back( z );
+
+    }
+
+    for( int k = 0; k<3*trcount; k++ )
     {
         myClr.insert( myClr.end(),
                       myCurrentColor.begin(), myCurrentColor.end());

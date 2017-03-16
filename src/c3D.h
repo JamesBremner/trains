@@ -53,6 +53,8 @@ private:
                   float margin
                 );
 
+    void Tri2dTo3DVertex( float* pt, float z, int trcount );
+
 };
 
 }
