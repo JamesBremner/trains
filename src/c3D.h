@@ -9,6 +9,7 @@ public:
     void Render();
     void RenderTracks();
     void RenderTrains();
+    void RenderStations();
 
     void Size( int w, int h );
 

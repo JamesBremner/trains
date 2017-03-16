@@ -57,6 +57,7 @@ void c3D::Render()
     myVx.clear();
     myClr.clear();
     RenderTracks();
+    RenderStations();
     RenderTrains();
 
 
@@ -163,6 +164,55 @@ void c3D::Camera()
         (float*) &MVP );
 }
 
+void c3D::RenderStations()
+{
+    std::vector< float > white { 1, 1, 1 };
+    std::vector< float > red { 1, 0, 0 };
+    std::vector< float > green { 0, 1, 0 };
+
+    for( auto stat : theSim.Stations )
+    {
+        myCurrentColor = white;
+        float x1, y1, x2, y2;
+        Convert(
+            x1, y1,
+            stat->myLocation-5,
+            0.075);
+        edge e = Convert(
+                     x2, y2,
+                     stat->myLocation+5,
+                     0.075);
+        bool fVert = true;
+        if( e == edge::top || e == edge::bottom)
+            fVert = false;
+
+        DrawLine( x1, y1, x2, y2, .02, fVert );
+
+
+        Convert(
+            x1, y1,
+            stat->myLocation - 10,
+            0.05 );
+        if( stat->IsLightGreen( 0 ) )
+            myCurrentColor = green;
+        else
+            myCurrentColor = red;
+        DrawLine( x1, y1, x1+.01, y1, .01, false );
+
+        Convert(
+            x1, y1,
+            stat->myLocation + 10,
+            0.1 );
+        if( stat->IsLightGreen( 1 ) )
+            myCurrentColor = green;
+        else
+            myCurrentColor = red;
+        DrawLine( x1, y1, x1+.01, y1, .01, false );
+
+
+    }
+}
+
 void c3D::RenderTracks()
 {
     std::vector< float > color { 0, 0, 1 };
@@ -187,7 +237,7 @@ void c3D::RenderTrains()
     float margin = 0.05;
     //DrawLine( 0.5, 1 - margin, 0.55, 1 - margin, 0.04, false );
 
-        for( auto train : theSim.Trains )
+    for( auto train : theSim.Trains )
     {
         float margin = 0.05;
         if( train->Track() == 1 )
@@ -198,9 +248,9 @@ void c3D::RenderTrains()
             train->LocationL()-4,
             margin);
         edge e = Convert(
-            x2, y2,
-            train->LocationL()+4,
-            margin );
+                     x2, y2,
+                     train->LocationL()+4,
+                     margin );
         bool fVert = true;
         if( e == edge::top || e == edge::bottom)
             fVert = false;
@@ -381,43 +431,43 @@ void c3D::LoadShaders()
 
 }
 
-    c3D::edge c3D::Convert( float& x, float& y,       // pixel location
-                  int loc,              // location from terminus A
-                  float margin
-                )
-    {
+c3D::edge c3D::Convert( float& x, float& y,       // pixel location
+                        int loc,              // location from terminus A
+                        float margin
+                      )
+{
 
-        float locF = loc * myConvertL2F;
-        if( locF < .667 )
-        {
-            x = .33 + locF;
-            y = 1 - margin;
-            return edge::top;
-        }
-        else if ( locF < 2.667 )
-        {
-            x = 1 - margin;
-            y = 1 - locF + 0.667;
-            return edge::right;
-        }
-        else if ( locF < 4.667 )
-        {
-            x = 1 - locF + 2.667;
-            y = -1 + margin;
-            return edge::bottom;
-        }
-        else if( locF < 6.667 )
-        {
-            x = -1 + margin;
-            y = -1 + locF - 4.667;
-            return edge::left;
-        }
-        else if( locF < 7.33 )
-        {
-            x = -1 + locF - 6.667;
-            y = 1 - margin;
-            return edge::top;
-        }
+    float locF = loc * myConvertL2F;
+    if( locF < .667 )
+    {
+        x = .33 + locF;
+        y = 1 - margin;
+        return edge::top;
     }
+    else if ( locF < 2.667 )
+    {
+        x = 1 - margin;
+        y = 1 - locF + 0.667;
+        return edge::right;
+    }
+    else if ( locF < 4.667 )
+    {
+        x = 1 - locF + 2.667;
+        y = -1 + margin;
+        return edge::bottom;
+    }
+    else if( locF < 6.667 )
+    {
+        x = -1 + margin;
+        y = -1 + locF - 4.667;
+        return edge::left;
+    }
+    else if( locF < 7.33 )
+    {
+        x = -1 + locF - 6.667;
+        y = 1 - margin;
+        return edge::top;
+    }
+}
 
 }
