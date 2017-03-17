@@ -1,4 +1,7 @@
 namespace train {
+
+    /** Animation of train silulation using opengl */
+
 class cThreeD
 {
 public:
@@ -52,8 +55,6 @@ private:
                   int loc,              // location from terminus A
                   float margin
                 );
-
-    void Tri2dTo3DVertex( float* pt, float z, int trcount );
 
 };
 

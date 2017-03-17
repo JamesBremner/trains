@@ -8,9 +8,8 @@
 
 #include <wx/wx.h>
 #include <wx/glcanvas.h>
-extern "C" {
-#include "dblunt.h"
-}
+
+#include "cString2Vx.h"
 
 #include "cStation.h"
 #include "c3D.h"
@@ -142,6 +141,8 @@ void cThreeD::Camera()
 
     if( ! myFocusStation )
     {
+        // there is no focus station
+        // so display entire railway
         float xSpan = 1;
         float ySpan = 1;
 
@@ -162,6 +163,8 @@ void cThreeD::Camera()
     }
     else
     {
+        // focussed on a particular station
+        // so display a small area around station
         float xSpan = 0.2;
         float ySpan = 0.2;
 
@@ -211,6 +214,13 @@ void cThreeD::RenderStations()
     std::vector< float > red { 1, 0, 0 };
     std::vector< float > green { 0, 1, 0 };
 
+    // set up text converter for station names
+    raven::ogl::cString2Vx S2V;
+    S2V.Color(1,1,1);
+    S2V.Scale( 0.03, 0.03 );
+    S2V.Vertex( myVx );
+    S2V.Color( myClr );
+
     for( auto stat : theSim.Stations )
     {
         myCurrentColor = white;
@@ -253,17 +263,9 @@ void cThreeD::RenderStations()
             ytoff = 0;
             break;
         }
-        float textw, texth;
-        float buf[2000];
-        int trcount = dblunt_string_to_vertices(
-                          stat->myName.c_str(),
-                          buf,
-                          2000 * sizeof(float),
-                          x1+xtoff, y1+ytoff,
-                           0.03, 0.03,
-                          &textw, &texth );
-        Tri2dTo3DVertex( buf, 0, trcount );
 
+        S2V.Locate(x1+xtoff, y1+ytoff, 0);
+        S2V.String( stat->myName );
 
         Convert(
             x1, y1,
@@ -385,29 +387,6 @@ void cThreeD::DrawLine(
     }
 
     for( int k = 0; k<6; k++ )
-    {
-        myClr.insert( myClr.end(),
-                      myCurrentColor.begin(), myCurrentColor.end());
-    }
-}
-
-void cThreeD::Tri2dTo3DVertex( float* pt, float z, int trcount )
-{
-    for( int textv = 0; textv < trcount; textv++ )
-    {
-        myVx.push_back( *pt++ );
-        myVx.push_back( *pt++ );
-        myVx.push_back( z );
-        myVx.push_back( *pt++ );
-        myVx.push_back( *pt++ );
-        myVx.push_back( z );
-        myVx.push_back( *pt++ );
-        myVx.push_back( *pt++ );
-        myVx.push_back( z );
-
-    }
-
-    for( int k = 0; k<3*trcount; k++ )
     {
         myClr.insert( myClr.end(),
                       myCurrentColor.begin(), myCurrentColor.end());
